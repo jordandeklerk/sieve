@@ -9,7 +9,7 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/jordandeklerk/sieve)](https://github.com/jordandeklerk/sieve/graphs/commit-activity)
 [![Python version](https://img.shields.io/badge/3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?logo=python&logoColor=white)](https://www.python.org/)
 
-__sieve__ is a Python package for nonparametric regression and classification using penalized sieve estimation in multivariate tensor product spaces, offering computational efficiency and strong statistical properties by adapting to feature sparsity and mitigating the curse of dimensionality.
+__sieve__ is a Python package for nonparametric regression using the method of sieves in multivariate tensor product spaces. It implements both least-squares and L1-penalized sieve estimators that mitigate the curse of dimensionality through orthogonal basis expansions with carefully ordered multivariate basis functions, offering computational efficiency and strong statistical properties for general reproducing kernel Hilbert spaces.
 
 <br><br>
 
