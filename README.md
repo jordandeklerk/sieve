@@ -11,11 +11,6 @@
 
 __sieve__ is a Python package for penalized sieve estimation in tensor product spaces for non-parametric regression and classification estimation.
 
-<br><br><br>
-
-> **⚠️ Note:**
-> This package is currently in active development.
-
 ## Citation
 
 ```bibtex
