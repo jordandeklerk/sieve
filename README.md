@@ -1,5 +1,5 @@
-<img src="docs/source/_static/sieve-light.png#gh-light-mode-only" width="175" align="left" alt="sieve logo"></img>
-<img src="docs/source/_static/sieve-dark.png#gh-dark-mode-only" width="175" align="left" alt="sieve logo"></img>
+<img src="docs/source/_static/sieve-light.png#gh-light-mode-only" width="200" align="left" alt="sieve logo"></img>
+<img src="docs/source/_static/sieve-dark.png#gh-dark-mode-only" width="200" align="left" alt="sieve logo"></img>
 
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
@@ -11,7 +11,7 @@
 
 __sieve__ is a Python package for penalized sieve estimation in tensor product spaces for non-parametric regression and classification estimation.
 
-<br><br>
+<br><br><br>
 
 > **⚠️ Note:**
 > This package is currently in active development.
