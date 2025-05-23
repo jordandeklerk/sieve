@@ -6,10 +6,6 @@ from __future__ import annotations
 def generate_factors(n: int, dim_limit: int) -> list[list[int]]:
     """Generate all possible ways to factor n into at most dim_limit factors.
 
-    Find all possible factorizations of n as a product of at most dim_limit
-    positive integers greater than 1. This is useful for constructing tensor
-    product basis functions in sieve estimation methods.
-
     Parameters
     ----------
     n : int
