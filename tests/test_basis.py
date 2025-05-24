@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from sieve.basis import design_matrix, multi_psi, psi
+from sieve.basis import design_matrix, kernel, multi_psi, psi, tensor_kernel
 
 
 def test_psi_sobolev1():
@@ -140,3 +140,85 @@ def test_design_matrix_unsupported_basis_type():
 
     with pytest.raises(ValueError, match="Unsupported basis type for optimized computation"):
         design_matrix(X, 1, "sobolev1", index_matrix)
+
+
+def test_kernel_sobolev1():
+    assert kernel(0.3, 0.5, "sobolev1") == 1.3
+    assert kernel(0.5, 0.3, "sobolev1") == 1.3
+    assert kernel(0.7, 0.7, "sobolev1") == 1.7
+    assert kernel(1.0, 0.2, "sobolev1") == 1.2
+
+
+def test_kernel_gaussian():
+    assert kernel(0.5, 0.5, "gaussian") == 1.0
+    assert np.isclose(kernel(0.3, 0.5, "gaussian", kernel_para=2.0), np.exp(-2.0 * 0.04))
+    assert np.isclose(kernel(1.0, 0.0, "gaussian", kernel_para=1.0), np.exp(-1.0))
+
+
+def test_kernel_invalid_type():
+    with pytest.raises(ValueError, match="Unknown kernel type: invalid"):
+        kernel(0.5, 0.5, "invalid")
+
+
+def test_tensor_kernel_basic():
+    x = np.array([0.3, 0.7])
+    z = np.array([0.5, 0.4])
+
+    result = tensor_kernel(x, z, "sobolev1")
+    expected = kernel(0.3, 0.5, "sobolev1") * kernel(0.7, 0.4, "sobolev1")
+    assert np.isclose(result, expected)
+
+
+def test_tensor_kernel_gaussian():
+    x = np.array([0.5, 0.5])
+    z = np.array([0.5, 0.5])
+
+    result = tensor_kernel(x, z, "gaussian", kernel_para=2.0)
+    assert result == 1.0
+
+    x = np.array([0.3, 0.7])
+    z = np.array([0.5, 0.4])
+    result = tensor_kernel(x, z, "gaussian", kernel_para=2.0)
+    expected = kernel(0.3, 0.5, "gaussian", 2.0) * kernel(0.7, 0.4, "gaussian", 2.0)
+    assert np.isclose(result, expected)
+
+
+def test_tensor_kernel_dimension_mismatch():
+    x = np.array([0.5, 0.3])
+    z = np.array([0.5, 0.3, 0.7])
+
+    with pytest.raises(ValueError, match="x and z must have the same dimension"):
+        tensor_kernel(x, z, "sobolev1")
+
+
+def test_tensor_kernel_single_dimension():
+    x = np.array([0.5])
+    z = np.array([0.3])
+
+    result = tensor_kernel(x, z, "sobolev1")
+    expected = kernel(0.5, 0.3, "sobolev1")
+    assert result == expected
+
+
+def test_tensor_kernel_high_dimension():
+    np.random.seed(42)
+    dim = 5
+    x = np.random.rand(dim)
+    z = np.random.rand(dim)
+
+    result = tensor_kernel(x, z, "sobolev1")
+    expected = 1.0
+    for i in range(dim):
+        expected *= kernel(x[i], z[i], "sobolev1")
+    assert np.isclose(result, expected)
+
+
+@pytest.mark.parametrize("kernel_type", ["sobolev1", "gaussian"])
+def test_tensor_kernel_types(kernel_type):
+    x = np.array([0.25, 0.75])
+    z = np.array([0.5, 0.5])
+
+    result = tensor_kernel(x, z, kernel_type, kernel_para=1.5)
+    assert isinstance(result, float)
+    assert not np.isnan(result)
+    assert not np.isinf(result)

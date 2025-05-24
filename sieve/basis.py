@@ -1,4 +1,4 @@
-"""Basis functions for sieve estimation methods."""
+"""Basis functions for sieve estimation."""
 
 from __future__ import annotations
 
@@ -204,7 +204,7 @@ def design_matrix(
            ...: X = np.random.rand(100, 2)  # 100 observations, 2 dimensions
            ...: index_matrix = np.array([[1, 1], [2, 1], [1, 2], [2, 2]])
            ...: Phi = design_matrix(X, 4, "cosine", index_matrix)
-           ...: Phi.shape
+           ...: Phi
 
     References
     ----------
@@ -268,3 +268,99 @@ def design_matrix(
         raise ValueError(f"Unsupported basis type for optimized computation: {basis_type}")
 
     return Phi
+
+
+def kernel(x: float, z: float, kernel_type: Literal["sobolev1", "gaussian"], kernel_para: float = 1.0) -> float:
+    r"""Compute univariate kernel function value.
+
+    Evaluate a kernel function :math:`K(x, z)` that measures similarity between
+    two points. Different kernel types correspond to different smoothness assumptions
+    on the underlying function space.
+
+    Parameters
+    ----------
+    x : float
+        First input point.
+    z : float
+        Second input point.
+    kernel_type : {"sobolev1", "gaussian"}
+        Type of kernel function:
+
+        - "sobolev1": Sobolev space kernel :math:`K(x,z) = 1 + \min(x, z)`
+        - "gaussian": Gaussian RBF kernel :math:`K(x,z) = \exp(-\gamma ||x-z||^2)`
+
+    kernel_para : float, default=1.0
+        Kernel parameter. For Gaussian kernel, this is :math:`\gamma` controlling
+        the bandwidth.
+
+    Returns
+    -------
+    float
+        Kernel function value :math:`K(x, z)`.
+
+    Examples
+    --------
+    Evaluate different kernel functions:
+
+    .. ipython::
+
+        In [1]: from sieve.basis import kernel
+           ...: kernel(0.3, 0.5, "sobolev1")
+
+        In [2]: kernel(0.3, 0.5, "gaussian", kernel_para=2.0)
+    """
+    if kernel_type == "sobolev1":
+        return 1.0 + min(x, z)
+    if kernel_type == "gaussian":
+        return np.exp(-kernel_para * (x - z) ** 2)
+    raise ValueError(f"Unknown kernel type: {kernel_type}")
+
+
+def tensor_kernel(
+    x: np.ndarray,
+    z: np.ndarray,
+    kernel_type: Literal["sobolev1", "gaussian"],
+    kernel_para: float = 1.0,
+) -> float:
+    r"""Compute tensor product kernel function.
+
+    Evaluate the tensor product kernel :math:`K(x, z) = \prod_{i=1}^d K_i(x_i, z_i)`
+    where :math:`K_i` is a univariate kernel function.
+
+    Parameters
+    ----------
+    x : ndarray
+        First d-dimensional input point.
+    z : ndarray
+        Second d-dimensional input point.
+    kernel_type : {"sobolev1", "gaussian"}
+        Type of univariate kernel functions to use.
+    kernel_para : float, default=1.0
+        Kernel parameter applied to each dimension.
+
+    Returns
+    -------
+    float
+        Tensor product kernel value.
+
+    Examples
+    --------
+    Compute tensor product kernels:
+
+    .. ipython::
+
+        In [1]: from sieve.basis import tensor_kernel
+           ...: import numpy as np
+           ...: x = np.array([0.3, 0.7])
+           ...: z = np.array([0.5, 0.4])
+           ...: tensor_kernel(x, z, "sobolev1")
+
+        In [2]: tensor_kernel(x, z, "gaussian", kernel_para=2.0)
+    """
+    if len(x) != len(z):
+        raise ValueError("x and z must have the same dimension")
+
+    result = 1.0
+    for xi, zi in zip(x, z):
+        result *= kernel(float(xi), float(zi), kernel_type, kernel_para)
+    return result
