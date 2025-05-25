@@ -89,27 +89,30 @@ def psi(x: float, j: int, basis_type: BasisType) -> float:
         x_transformed = (x - 0.5) * 2
 
         # Legendre polynomials up to order 9
-        legendre_polys = {
-            1: 1.0,
-            2: x_transformed,
-            3: (3 * x_transformed**2 - 1) / 2,
-            4: (5 * x_transformed**3 - 3 * x_transformed) / 2,
-            5: (35 * x_transformed**4 - 30 * x_transformed**2 + 3) / 8,
-            6: (63 * x_transformed**5 - 70 * x_transformed**3 + 15 * x_transformed) / 8,
-            7: (231 * x_transformed**6 - 315 * x_transformed**4 + 105 * x_transformed**2 - 5) / 16,
-            8: (429 * x_transformed**7 - 693 * x_transformed**5 + 315 * x_transformed**3 - 35 * x_transformed) / 16,
-            9: (
+        if j == 1:
+            return 1.0
+        if j == 2:
+            return x_transformed
+        if j == 3:
+            return (3 * x_transformed**2 - 1) / 2
+        if j == 4:
+            return (5 * x_transformed**3 - 3 * x_transformed) / 2
+        if j == 5:
+            return (35 * x_transformed**4 - 30 * x_transformed**2 + 3) / 8
+        if j == 6:
+            return (63 * x_transformed**5 - 70 * x_transformed**3 + 15 * x_transformed) / 8
+        if j == 7:
+            return (231 * x_transformed**6 - 315 * x_transformed**4 + 105 * x_transformed**2 - 5) / 16
+        if j == 8:
+            return (429 * x_transformed**7 - 693 * x_transformed**5 + 315 * x_transformed**3 - 35 * x_transformed) / 16
+        if j == 9:
+            return (
                 6435 * x_transformed**8
                 - 12012 * x_transformed**6
                 + 6930 * x_transformed**4
                 - 1260 * x_transformed**2
                 + 35
-            )
-            / 128,
-        }
-
-        if j in legendre_polys:
-            return legendre_polys[j]
+            ) / 128
         raise ValueError(f"Legendre polynomial of order {j} not implemented (max order is 9)")
 
     raise ValueError(f"Unknown basis type: {basis_type}")
