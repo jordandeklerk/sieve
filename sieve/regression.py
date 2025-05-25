@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 from scipy import linalg
@@ -14,7 +14,7 @@ def kernel_matrix(
     X: np.ndarray,
     kernel_type: Literal["sobolev1", "gaussian"],
     kernel_para: float = 1.0,
-) -> dict[str, Any]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     r"""Construct kernel matrix and perform singular value decomposition.
 
     Compute the kernel matrix :math:`K_{ij} = K(x_i, x_j)` for all pairs of observations
@@ -31,12 +31,12 @@ def kernel_matrix(
 
     Returns
     -------
-    dict[str, Any]
-        Dictionary containing:
-
-        - ``"K"`` : kernel matrix
-        - ``"U"`` : left singular vectors
-        - ``"s"`` : singular values
+    K : ndarray
+        :math:`n \times n` kernel matrix.
+    U : ndarray
+        :math:`n \times n` matrix of left singular vectors.
+    s : ndarray
+        :math:`n`-dimensional vector of singular values.
 
     Examples
     --------
@@ -47,10 +47,10 @@ def kernel_matrix(
         In [1]: from sieve.regression import kernel_matrix
            ...: import numpy as np
            ...: X = np.random.rand(50, 2)
-           ...: result = kernel_matrix(X, "sobolev1")
-           ...: result["K"].shape
+           ...: K, U, s = kernel_matrix(X, "sobolev1")
+           ...: K.shape
 
-        In [2]: result["s"][:5]  # First 5 singular values
+        In [2]: s[:5]  # First 5 singular values
     """
     n = X.shape[0]
     K = np.zeros((n, n))
@@ -65,7 +65,7 @@ def kernel_matrix(
     # SVD
     U, s, _ = linalg.svd(K)
 
-    return {"K": K, "U": U, "s": s}
+    return K, U, s
 
 
 def least_squares(Phi: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -174,8 +174,8 @@ def krr_fit(
            ...: import numpy as np
            ...: X = np.random.rand(50, 2)
            ...: y = np.random.randn(50)
-           ...: km = kernel_matrix(X, "gaussian")
-           ...: beta = krr_fit(km["U"], km["s"], y, lambda_reg=0.1)
+           ...: K, U, s = kernel_matrix(X, "gaussian")
+           ...: beta = krr_fit(U, s, y, lambda_reg=0.1)
            ...: beta
     """
     D_inv = np.diag(1.0 / (s + lambda_reg))
@@ -223,8 +223,8 @@ def krr_predict(
            ...: X_train = np.random.rand(50, 2)
            ...: y_train = np.random.randn(50)
            ...: X_test = np.random.rand(20, 2)
-           ...: km = kernel_matrix(X_train, "gaussian")
-           ...: beta = krr_fit(km["U"], km["s"], y_train, lambda_reg=0.1)
+           ...: K, U, s = kernel_matrix(X_train, "gaussian")
+           ...: beta = krr_fit(U, s, y_train, lambda_reg=0.1)
            ...: y_pred = krr_predict(X_train, X_test, beta, "gaussian")
            ...: y_pred
     """

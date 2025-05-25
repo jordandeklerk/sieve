@@ -10,40 +10,37 @@ def test_kernel_matrix_basic():
     np.random.seed(42)
     X = np.random.rand(5, 2)
 
-    result = kernel_matrix(X, "sobolev1")
+    K, U, s = kernel_matrix(X, "sobolev1")
 
-    assert "K" in result
-    assert "U" in result
-    assert "s" in result
-
-    K = result["K"]
     assert K.shape == (5, 5)
     assert np.allclose(K, K.T)
 
-    assert result["U"].shape == (5, 5)
-    assert result["s"].shape == (5,)
+    assert U.shape == (5, 5)
+    assert s.shape == (5,)
 
 
 def test_kernel_matrix_gaussian():
     np.random.seed(42)
     X = np.random.rand(10, 3)
 
-    result = kernel_matrix(X, "gaussian", kernel_para=2.0)
+    K, U, s = kernel_matrix(X, "gaussian", kernel_para=2.0)
 
-    K = result["K"]
     assert K.shape == (10, 10)
     assert np.allclose(K, K.T)
     assert np.all(np.diag(K) == 1.0)
+
+    assert U.shape == (10, 10)
+    assert s.shape == (10,)
 
 
 def test_kernel_matrix_svd_properties():
     np.random.seed(42)
     X = np.random.rand(8, 2)
 
-    result = kernel_matrix(X, "sobolev1")
+    K, U, s = kernel_matrix(X, "sobolev1")
 
-    K_reconstructed = result["U"] @ np.diag(result["s"]) @ result["U"].T
-    assert np.allclose(result["K"], K_reconstructed)
+    K_reconstructed = U @ np.diag(s) @ U.T
+    assert np.allclose(K, K_reconstructed)
 
 
 def test_least_squares_basic():
@@ -98,8 +95,8 @@ def test_krr_fit_basic():
     X = np.random.rand(n, 2)
     y = np.random.randn(n)
 
-    km = kernel_matrix(X, "gaussian")
-    beta = krr_fit(km["U"], km["s"], y, lambda_reg=0.1)
+    _, U, s = kernel_matrix(X, "gaussian")
+    beta = krr_fit(U, s, y, lambda_reg=0.1)
 
     assert beta.shape == (n,)
     assert not np.any(np.isnan(beta))
@@ -112,10 +109,10 @@ def test_krr_fit_regularization_effect():
     X = np.random.rand(n, 2)
     y = np.random.randn(n)
 
-    km = kernel_matrix(X, "gaussian")
+    _, U, s = kernel_matrix(X, "gaussian")
 
-    beta_small_lambda = krr_fit(km["U"], km["s"], y, lambda_reg=0.01)
-    beta_large_lambda = krr_fit(km["U"], km["s"], y, lambda_reg=10.0)
+    beta_small_lambda = krr_fit(U, s, y, lambda_reg=0.01)
+    beta_large_lambda = krr_fit(U, s, y, lambda_reg=10.0)
 
     assert np.linalg.norm(beta_small_lambda) > np.linalg.norm(beta_large_lambda)
 
@@ -141,7 +138,7 @@ def test_krr_predict_same_points():
 
     y_pred = krr_predict(X, X, beta_hat, "sobolev1")
 
-    K = kernel_matrix(X, "sobolev1")["K"]
+    K, _, _ = kernel_matrix(X, "sobolev1")
     expected = K @ beta_hat
 
     assert np.allclose(y_pred, expected)
@@ -154,8 +151,8 @@ def test_krr_pipeline():
     y_train = np.sin(2 * np.pi * X_train[:, 0]) + 0.1 * np.random.randn(n_train)
     X_test = np.random.rand(n_test, 2)
 
-    km = kernel_matrix(X_train, "gaussian", kernel_para=5.0)
-    beta = krr_fit(km["U"], km["s"], y_train, lambda_reg=0.01)
+    _, U, s = kernel_matrix(X_train, "gaussian", kernel_para=5.0)
+    beta = krr_fit(U, s, y_train, lambda_reg=0.01)
     y_pred = krr_predict(X_train, X_test, beta, "gaussian", kernel_para=5.0)
 
     assert y_pred.shape == (n_test,)
@@ -167,8 +164,8 @@ def test_kernel_matrix_types(kernel_type):
     np.random.seed(42)
     X = np.random.rand(15, 3)
 
-    result = kernel_matrix(X, kernel_type, kernel_para=1.5)
+    K, _, s = kernel_matrix(X, kernel_type, kernel_para=1.5)
 
-    assert result["K"].shape == (15, 15)
-    assert np.allclose(result["K"], result["K"].T)
-    assert np.all(result["s"] >= 0)
+    assert K.shape == (15, 15)
+    assert np.allclose(K, K.T)
+    assert np.all(s >= 0)
