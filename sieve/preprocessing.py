@@ -70,12 +70,6 @@ def sieve_preprocess(
         - 'basis_n': Number of basis functions
         - 'norm_para': Normalization parameters
 
-    Warnings
-    --------
-    UserWarning
-        If basis_n is not specified, warns about default choice and
-        theoretical recommendations.
-
     Examples
     --------
     Basic usage with automatic basis selection:
@@ -93,18 +87,8 @@ def sieve_preprocess(
     .. ipython::
 
         In [2]: result = sieve_preprocess(X, basis_n=30, interaction_order=1)
-           ...: # Verify additive structure
            ...: index_mat = result['index_matrix']
            ...: ((index_mat[:, 1:] > 1).sum(axis=1) <= 1).all()
-
-    References
-    ----------
-
-    .. [1] Chen, X. (2007). *Large Sample Sieve Estimation of Semi-Nonparametric Models.*
-        Handbook of Econometrics, 6, 5549-5632.
-
-    .. [2] Newey, W. K. (1997). *Convergence rates and asymptotic normality for
-        series estimators.* Journal of Econometrics, 79(1), 147-168.
     """
     X = np.asarray(X, dtype=np.float64)
     if X.ndim == 1:
@@ -291,7 +275,6 @@ def create_index_matrix(
     .. ipython::
 
         In [2]: index_matrix = create_index_matrix(xdim=3, basis_n=15, interaction_order=1)
-           ...: # Check that each row has at most one non-1 entry (excluding first column)
            ...: ((index_matrix[:, 1:] > 1).sum(axis=1) <= 1).all()
     """
     if basis_n is None and maxj is None:
@@ -334,10 +317,7 @@ def _add_product_indices(
     interaction_order: int,
 ) -> None:
     """Add all valid index combinations for a given product value."""
-    # Get all factorizations of product_v
     factorizations = generate_factors(product_v, interaction_order)
-
-    # Add trivial factorization (product_v itself)
     factorizations.append([product_v])
 
     all_permutations = []
@@ -351,7 +331,6 @@ def _add_product_indices(
                 seen.add(perm)
                 all_permutations.append(list(perm))
 
-    # For each permutation, create index vectors
     for perm in all_permutations:
         n_factors = len(perm)
 
