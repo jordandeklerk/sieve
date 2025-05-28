@@ -12,6 +12,153 @@ from .basis import BasisType, design_matrix
 from .utils import generate_factors
 
 
+def sieve_preprocess(
+    X: np.ndarray | Any,
+    basis_n: int | None = None,
+    maxj: int | None = None,
+    basis_type: BasisType = "cosine",
+    interaction_order: int = 3,
+    index_matrix: np.ndarray | None = None,
+    norm_feature: bool = True,
+    norm_para: np.ndarray | None = None,
+) -> dict[str, Any]:
+    r"""Preprocess data for sieve estimation.
+
+    Generate the design matrix for downstream penalized regression using
+    tensor product basis functions. This is the main preprocessing step
+    for sieve estimation methods.
+
+    Parameters
+    ----------
+    X : ndarray or array-like
+        n x d matrix of original features.
+    basis_n : int or None, default=None
+        Number of basis functions. If None, defaults to 50 * d where d is
+        the feature dimension. Larger values reduce approximation error but
+        increase computational cost.
+    maxj : int or None, default=None
+        Maximum index product for basis functions. If basis_n is specified,
+        this parameter is ignored.
+    basis_type : {"cosine", "sine", "polytri", "poly"}, default="cosine"
+        Type of univariate basis functions:
+
+        - "cosine": Cosine basis, suitable for most purposes
+        - "sine": Sine basis
+        - "polytri": Mixed polynomial-trigonometric basis
+        - "poly": Polynomial basis
+
+    interaction_order : int, default=3
+        Controls model complexity. 1 for additive models, 2 for pairwise
+        interactions, etc. Must be <= feature dimension.
+    index_matrix : ndarray or None, default=None
+        Pre-generated index matrix. If None, one is generated automatically.
+    norm_feature : bool, default=True
+        Whether to normalize features to [0, 1]. Only set to False if
+        features are already normalized.
+    norm_para : ndarray or None, default=None
+        Normalization parameters from training data. For training, use None.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary containing:
+
+        - 'Phi': n x basis_n design matrix for regression
+        - 'X': Normalized feature matrix
+        - 'basis_type': Type of basis functions used
+        - 'index_matrix': Matrix specifying basis function indices
+        - 'basis_n': Number of basis functions
+        - 'norm_para': Normalization parameters
+
+    Warnings
+    --------
+    UserWarning
+        If basis_n is not specified, warns about default choice and
+        theoretical recommendations.
+
+    Examples
+    --------
+    Basic usage with automatic basis selection:
+
+    .. ipython::
+
+        In [1]: from sieve.preprocessing import sieve_preprocess
+           ...: import numpy as np
+           ...: X = np.random.rand(100, 2)
+           ...: result = sieve_preprocess(X, basis_n=20)
+           ...: result['Phi'].shape
+
+    Fit an additive model (no interactions):
+
+    .. ipython::
+
+        In [2]: result = sieve_preprocess(X, basis_n=30, interaction_order=1)
+           ...: # Verify additive structure
+           ...: index_mat = result['index_matrix']
+           ...: ((index_mat[:, 1:] > 1).sum(axis=1) <= 1).all()
+
+    References
+    ----------
+
+    .. [1] Chen, X. (2007). *Large Sample Sieve Estimation of Semi-Nonparametric Models.*
+        Handbook of Econometrics, 6, 5549-5632.
+
+    .. [2] Newey, W. K. (1997). *Convergence rates and asymptotic normality for
+        series estimators.* Journal of Econometrics, 79(1), 147-168.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+
+    n_samples, xdim = X.shape
+
+    # Set default basis_n if not specified
+    if basis_n is None:
+        if maxj is None:
+            warnings.warn(
+                "User did not specify number of basis functions, default is xdim*50. "
+                f"A theoretically good number should be around (sample size)^(1/3) * (feature dimension)^3 "
+                f"= {int(n_samples ** (1 / 3) * xdim**3)}"
+            )
+            basis_n = xdim * 50
+
+    if basis_n is not None and basis_n <= 1:
+        raise ValueError("basis_n must be > 1")
+
+    if norm_feature:
+        norm_result = normalize_X(X, norm_para)
+        X = norm_result["X"]
+        norm_para = norm_result["norm_para"]
+
+    if index_matrix is None:
+        index_matrix = create_index_matrix(
+            xdim=xdim,
+            basis_n=basis_n,
+            maxj=maxj,
+            interaction_order=interaction_order,
+        )
+
+    indices_only = index_matrix[:, 1:]
+
+    if basis_type not in ["cosine", "sine", "polytri", "poly"]:
+        raise ValueError(
+            f"basis_type '{basis_type}' is not supported by the optimized design_matrix function. "
+            "Supported types are: 'cosine', 'sine', 'polytri', 'poly'"
+        )
+
+    actual_basis_n = indices_only.shape[0]
+    Phi = design_matrix(X, actual_basis_n, basis_type, indices_only)
+
+    return {
+        "Phi": Phi,
+        "X": X,
+        "basis_type": basis_type,
+        "index_matrix": index_matrix,
+        "basis_n": actual_basis_n,
+        "norm_para": norm_para,
+    }
+
+
 def normalize_X(
     X: np.ndarray,
     norm_para: np.ndarray | None = None,
@@ -213,150 +360,3 @@ def _add_product_indices(
             for i, pos in enumerate(positions):
                 index_vec[pos] = perm[i]
             index_list.append(index_vec)
-
-
-def sieve_preprocess(
-    X: np.ndarray | Any,
-    basis_n: int | None = None,
-    maxj: int | None = None,
-    basis_type: BasisType = "cosine",
-    interaction_order: int = 3,
-    index_matrix: np.ndarray | None = None,
-    norm_feature: bool = True,
-    norm_para: np.ndarray | None = None,
-) -> dict[str, Any]:
-    r"""Preprocess data for sieve estimation.
-
-    Generate the design matrix for downstream penalized regression using
-    tensor product basis functions. This is the main preprocessing step
-    for sieve estimation methods.
-
-    Parameters
-    ----------
-    X : ndarray or array-like
-        n x d matrix of original features.
-    basis_n : int or None, default=None
-        Number of basis functions. If None, defaults to 50 * d where d is
-        the feature dimension. Larger values reduce approximation error but
-        increase computational cost.
-    maxj : int or None, default=None
-        Maximum index product for basis functions. If basis_n is specified,
-        this parameter is ignored.
-    basis_type : {"cosine", "sine", "polytri", "poly"}, default="cosine"
-        Type of univariate basis functions:
-
-        - "cosine": Cosine basis, suitable for most purposes
-        - "sine": Sine basis
-        - "polytri": Mixed polynomial-trigonometric basis
-        - "poly": Polynomial basis
-
-    interaction_order : int, default=3
-        Controls model complexity. 1 for additive models, 2 for pairwise
-        interactions, etc. Must be <= feature dimension.
-    index_matrix : ndarray or None, default=None
-        Pre-generated index matrix. If None, one is generated automatically.
-    norm_feature : bool, default=True
-        Whether to normalize features to [0, 1]. Only set to False if
-        features are already normalized.
-    norm_para : ndarray or None, default=None
-        Normalization parameters from training data. For training, use None.
-
-    Returns
-    -------
-    dict[str, Any]
-        Dictionary containing:
-
-        - 'Phi': n x basis_n design matrix for regression
-        - 'X': Normalized feature matrix
-        - 'basis_type': Type of basis functions used
-        - 'index_matrix': Matrix specifying basis function indices
-        - 'basis_n': Number of basis functions
-        - 'norm_para': Normalization parameters
-
-    Warnings
-    --------
-    UserWarning
-        If basis_n is not specified, warns about default choice and
-        theoretical recommendations.
-
-    Examples
-    --------
-    Basic usage with automatic basis selection:
-
-    .. ipython::
-
-        In [1]: from sieve.preprocessing import sieve_preprocess
-           ...: import numpy as np
-           ...: X = np.random.rand(100, 2)
-           ...: result = sieve_preprocess(X, basis_n=20)
-           ...: result['Phi'].shape
-
-    Fit an additive model (no interactions):
-
-    .. ipython::
-
-        In [2]: result = sieve_preprocess(X, basis_n=30, interaction_order=1)
-           ...: # Verify additive structure
-           ...: index_mat = result['index_matrix']
-           ...: ((index_mat[:, 1:] > 1).sum(axis=1) <= 1).all()
-
-    References
-    ----------
-
-    .. [1] Chen, X. (2007). *Large Sample Sieve Estimation of Semi-Nonparametric Models.*
-        Handbook of Econometrics, 6, 5549-5632.
-
-    .. [2] Newey, W. K. (1997). *Convergence rates and asymptotic normality for
-        series estimators.* Journal of Econometrics, 79(1), 147-168.
-    """
-    X = np.asarray(X, dtype=np.float64)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-
-    n_samples, xdim = X.shape
-
-    # Set default basis_n if not specified
-    if basis_n is None:
-        if maxj is None:
-            warnings.warn(
-                "User did not specify number of basis functions, default is xdim*50. "
-                f"A theoretically good number should be around (sample size)^(1/3) * (feature dimension)^3 "
-                f"= {int(n_samples ** (1 / 3) * xdim**3)}"
-            )
-            basis_n = xdim * 50
-
-    if basis_n is not None and basis_n <= 1:
-        raise ValueError("basis_n must be > 1")
-
-    if norm_feature:
-        norm_result = normalize_X(X, norm_para)
-        X = norm_result["X"]
-        norm_para = norm_result["norm_para"]
-
-    if index_matrix is None:
-        index_matrix = create_index_matrix(
-            xdim=xdim,
-            basis_n=basis_n,
-            maxj=maxj,
-            interaction_order=interaction_order,
-        )
-
-    indices_only = index_matrix[:, 1:]
-
-    if basis_type not in ["cosine", "sine", "polytri", "poly"]:
-        raise ValueError(
-            f"basis_type '{basis_type}' is not supported by the optimized design_matrix function. "
-            "Supported types are: 'cosine', 'sine', 'polytri', 'poly'"
-        )
-
-    actual_basis_n = indices_only.shape[0]
-    Phi = design_matrix(X, actual_basis_n, basis_type, indices_only)
-
-    return {
-        "Phi": Phi,
-        "X": X,
-        "basis_type": basis_type,
-        "index_matrix": index_matrix,
-        "basis_n": actual_basis_n,
-        "norm_para": norm_para,
-    }
