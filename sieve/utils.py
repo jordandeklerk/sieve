@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 
 def generate_factors(n: int, dim_limit: int) -> list[list[int]]:
     """Generate all possible ways to factor n into at most dim_limit factors.
@@ -41,6 +43,34 @@ def generate_factors(n: int, dim_limit: int) -> list[list[int]]:
 
     all_factorizations = _find_factorizations(n)
     return _filter_by_dimension(all_factorizations, dim_limit)
+
+
+def all_add_one(index: np.ndarray) -> np.ndarray:
+    """Generate all vectors obtained by incrementing exactly one element of index.
+
+    For each position in the input vector, create a new vector with that position
+    incremented by 1 while keeping all other positions unchanged.
+
+    Parameters
+    ----------
+    index : ndarray
+        1-dimensional array of indices.
+
+    Returns
+    -------
+    ndarray
+        2D array of shape (len(index), len(index)) where each row is the input
+        vector with exactly one element incremented.
+    """
+    index = np.asarray(index, dtype=int).ravel()
+    xdim = len(index)
+
+    added = np.tile(index, (xdim, 1))
+
+    for i in range(xdim):
+        added[i, i] += 1
+
+    return added
 
 
 def _validate_inputs(n: int, dim_limit: int) -> None:

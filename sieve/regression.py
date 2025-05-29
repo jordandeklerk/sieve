@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 from scipy import linalg
@@ -237,3 +237,184 @@ def krr_predict(
         for j in range(n_train):
             K_test_train[i, j] = tensor_kernel(X_test[i], X_train[j], kernel_type, kernel_para)
     return K_test_train @ beta_hat
+
+
+def krr_preprocess(
+    X: np.ndarray,
+    kernel_type: Literal["sobolev1", "gaussian"] = "sobolev1",
+    kernel_para: float = 1.0,
+    n_lambda: int = 10,
+) -> dict[str, Any]:
+    r"""Preprocess data for kernel ridge regression.
+
+    Compute kernel matrix and perform SVD decomposition, preparing data for
+    efficient KRR fitting with multiple regularization parameters.
+
+    Parameters
+    ----------
+    X : ndarray
+        :math:`n \times d` matrix of covariates.
+    kernel_type : {"sobolev1", "gaussian"}, default="sobolev1"
+        Type of kernel function to use.
+    kernel_para : float, default=1.0
+        Kernel parameter.
+    n_lambda : int, default=10
+        Number of regularization parameters to generate.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+
+        - 'K': Kernel matrix
+        - 'U': Left singular vectors
+        - 's': Singular values
+        - 'lambdas': Array of regularization parameters
+        - 'X': Original covariate matrix
+        - 'kernel_type': Kernel type used
+        - 'kernel_para': Kernel parameter used
+
+    Examples
+    --------
+    Preprocess data for KRR:
+
+    .. ipython::
+
+        In [1]: from sieve.regression import krr_preprocess
+           ...: import numpy as np
+           ...: X = np.random.rand(100, 2)
+           ...: model = krr_preprocess(X, kernel_type="gaussian")
+           ...: model['lambdas']
+    """
+    K, U, s = kernel_matrix(X, kernel_type, kernel_para)
+
+    lambda_min = 1e-4 * np.min(s)
+    lambda_max = np.max(s)
+    lambdas = np.logspace(np.log10(lambda_min), np.log10(lambda_max), n_lambda)
+
+    return {
+        "K": K,
+        "U": U,
+        "s": s,
+        "lambdas": lambdas,
+        "X": X,
+        "kernel_type": kernel_type,
+        "kernel_para": kernel_para,
+    }
+
+
+class KernelRidgeRegression:
+    """Kernel Ridge Regression estimator.
+
+    Implements kernel ridge regression with automatic hyperparameter selection.
+
+    Parameters
+    ----------
+    kernel_type : {"sobolev1", "gaussian"}, default="sobolev1"
+        Type of kernel function.
+    kernel_para : float, default=1.0
+        Kernel parameter.
+    lambda_reg : float or None, default=None
+        Regularization parameter. If None, will be selected by cross-validation.
+
+    Attributes
+    ----------
+    X_ : ndarray
+        Training data.
+    y_ : ndarray
+        Training targets.
+    beta_hat_ : ndarray
+        Fitted coefficients.
+    lambda_ : float
+        Selected regularization parameter.
+    kernel_type : str
+        Kernel type.
+    kernel_para : float
+        Kernel parameter.
+
+    Examples
+    --------
+    Basic usage:
+
+    .. ipython::
+
+        In [1]: from sieve.regression import KernelRidgeRegression
+           ...: import numpy as np
+           ...: X = np.random.rand(100, 2)
+           ...: y = np.sin(X[:, 0]) + 0.1 * np.random.randn(100)
+           ...: krr = KernelRidgeRegression(kernel_type="gaussian")
+           ...: krr.fit(X, y)
+           ...: y_pred = krr.predict(X[:10])
+           ...: y_pred.shape
+    """
+
+    def __init__(
+        self,
+        kernel_type: Literal["sobolev1", "gaussian"] = "sobolev1",
+        kernel_para: float = 1.0,
+        lambda_reg: float | None = None,
+    ):
+        self.kernel_type = kernel_type
+        self.kernel_para = kernel_para
+        self.lambda_reg = lambda_reg
+        self.X_ = None
+        self.y_ = None
+        self.beta_hat_ = None
+        self.lambda_ = None
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> KernelRidgeRegression:
+        """Fit kernel ridge regression model.
+
+        Parameters
+        ----------
+        X : ndarray
+            Training data of shape (n_samples, n_features).
+        y : ndarray
+            Target values of shape (n_samples,).
+
+        Returns
+        -------
+        self
+            Fitted estimator.
+        """
+        X = np.asarray(X)
+        y = np.asarray(y).ravel()
+
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        self.X_ = X
+        self.y_ = y
+
+        _, U, s = kernel_matrix(X, self.kernel_type, self.kernel_para)
+
+        if self.lambda_reg is None:
+            self.lambda_ = np.median(s) * 0.01
+        else:
+            self.lambda_ = self.lambda_reg
+
+        self.beta_hat_ = krr_fit(U, s, y, self.lambda_)
+
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Make predictions.
+
+        Parameters
+        ----------
+        X : ndarray
+            Test data of shape (n_samples, n_features).
+
+        Returns
+        -------
+        ndarray
+            Predicted values of shape (n_samples,).
+        """
+        if self.beta_hat_ is None:
+            raise ValueError("Model must be fitted before making predictions")
+
+        X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+
+        return krr_predict(self.X_, X, self.beta_hat_, self.kernel_type, self.kernel_para)
